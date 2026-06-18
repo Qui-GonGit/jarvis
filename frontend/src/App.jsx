@@ -5,6 +5,7 @@ import { WeatherPanel } from './components/WeatherPanel'
 import { UptimePanel } from './components/UptimePanel'
 import { JarvisOrb } from './components/JarvisOrb'
 import { ConversationPanel } from './components/ConversationPanel'
+import { ETFPanel } from './components/ETFPanel'
 import { KeyboardIcon, MicIcon } from './components/icons'
 import { useSpeech } from './hooks/useSpeech'
 import { usePolling } from './hooks/usePolling'
@@ -67,6 +68,7 @@ export default function App() {
   const weather = usePolling('/api/weather', { intervalMs: 10 * 60 * 1000 })
   const health = usePolling('/api/health', { intervalMs: 15000 })
   const emailStatus = usePolling('/api/email/status', { intervalMs: 30000 })
+  const etf = usePolling('/api/etf', { intervalMs: 5 * 60 * 1000 })
 
   const speech = useSpeech({
     onResult: (transcript) => {
@@ -111,8 +113,7 @@ export default function App() {
           time: timeNow(),
         },
       ])
-    } finally {
-      setOrbState(speech.isListening ? 'listening' : speech.isSpeaking ? 'speaking' : 'idle')
+      setOrbState('idle')
     }
   }
 
@@ -184,17 +185,20 @@ export default function App() {
           )}
         </div>
 
-        <div className="min-h-0 overflow-hidden rounded-md border border-cyan-500/20 bg-[#081627]/70 shadow-[0_0_20px_-4px_rgba(56,189,248,0.15)]">
-          <ConversationPanel
-            messages={messages}
-            onSend={handleSend}
-            onClear={handleClear}
-            onExtract={handleExtract}
-            isListening={speech.isListening}
-            onMicClick={handleMicClick}
-            micSupported={speech.supported}
-            inputRef={inputRef}
-          />
+        <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
+          <ETFPanel etfs={etf.data?.etfs} online={etf.online} onRefresh={etf.refresh} />
+          <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-cyan-500/20 bg-[#081627]/70 shadow-[0_0_20px_-4px_rgba(56,189,248,0.15)]">
+            <ConversationPanel
+              messages={messages}
+              onSend={handleSend}
+              onClear={handleClear}
+              onExtract={handleExtract}
+              isListening={speech.isListening}
+              onMicClick={handleMicClick}
+              micSupported={speech.supported}
+              inputRef={inputRef}
+            />
+          </div>
         </div>
       </main>
     </div>
