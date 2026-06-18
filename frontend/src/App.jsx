@@ -113,8 +113,7 @@ export default function App() {
           time: timeNow(),
         },
       ])
-    } finally {
-      setOrbState(speech.isListening ? 'listening' : speech.isSpeaking ? 'speaking' : 'idle')
+      setOrbState('idle')
     }
   }
 
