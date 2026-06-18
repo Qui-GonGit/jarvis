@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+*.local
+.DS_Store
+server/vendor/gmail-token.json
+server/vendor/piper-venv/
+server/vendor/piper/
+server/vendor/piper_macos_aarch64.tar.gz
