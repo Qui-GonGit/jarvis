@@ -6,6 +6,7 @@ import systemStatsRouter from './routes/systemStats.js'
 import weatherRouter from './routes/weather.js'
 import ttsRouter from './routes/tts.js'
 import emailRouter from './routes/email.js'
+import etfRouter from './routes/etf.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -28,6 +29,7 @@ app.use('/api/system-stats', systemStatsRouter)
 app.use('/api/weather', weatherRouter)
 app.use('/api/tts', ttsRouter)
 app.use('/api/email', emailRouter)
+app.use('/api/etf', etfRouter)
 
 app.listen(PORT, () => {
   console.log(`JARVIS backend listening on http://localhost:${PORT}`)
