@@ -32,3 +32,60 @@ export function Stat({ label, value }) {
     </div>
   )
 }
+
+const EQ_COLORS = {
+  cyan: { active: 'bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.85)]', inactive: 'bg-cyan-500/15' },
+  violet: { active: 'bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.85)]', inactive: 'bg-violet-500/15' },
+}
+
+const EQ_BAR_COUNT = 14
+const EQ_HEIGHT_SEED = [38, 68, 52, 84, 58, 96, 48, 74, 62, 90, 42, 78, 56, 70]
+
+export function Equalizer({ value, color = 'cyan' }) {
+  const c = EQ_COLORS[color] ?? EQ_COLORS.cyan
+  const activeCount = Math.round((Math.min(100, Math.max(0, value)) / 100) * EQ_BAR_COUNT)
+
+  return (
+    <div className="flex h-9 items-end gap-[3px]">
+      {Array.from({ length: EQ_BAR_COUNT }).map((_, i) => {
+        const isActive = i < activeCount
+        const height = isActive ? EQ_HEIGHT_SEED[i % EQ_HEIGHT_SEED.length] : 16
+        return (
+          <div
+            key={i}
+            className={`flex-1 origin-bottom rounded-[1px] transition-[height] duration-300 ${isActive ? c.active : c.inactive}`}
+            style={{
+              height: `${height}%`,
+              animation: isActive
+                ? `eq-pulse ${1 + (i % 5) * 0.15}s ease-in-out ${i * 0.05}s infinite`
+                : 'none',
+            }}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+export function Thermometer({ tempC, min = -10, max = 45 }) {
+  const value = tempC ?? 0
+  const pct = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100))
+  const fillColor =
+    value >= 28
+      ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.7)]'
+      : value <= 5
+        ? 'bg-cyan-300 shadow-[0_0_8px_rgba(165,243,252,0.7)]'
+        : 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.7)]'
+
+  return (
+    <div className="flex h-12 w-5 flex-col items-center">
+      <div className="relative h-9 w-2 overflow-hidden rounded-full border border-cyan-500/30 bg-cyan-950/50">
+        <div
+          className={`absolute bottom-0 left-0 w-full transition-all duration-700 ${fillColor}`}
+          style={{ height: `${pct}%` }}
+        />
+      </div>
+      <div className={`-mt-0.5 size-3.5 rounded-full border border-cyan-500/30 ${fillColor}`} />
+    </div>
+  )
+}

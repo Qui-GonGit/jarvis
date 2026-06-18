@@ -1,4 +1,4 @@
-import { Panel, ProgressBar, Stat } from './Panel'
+import { Panel, Equalizer, Stat } from './Panel'
 import { RefreshIcon } from './icons'
 
 export function SystemStatsPanel({ stats, online, onRefresh }) {
@@ -31,14 +31,14 @@ export function SystemStatsPanel({ stats, online, onRefresh }) {
               <span>CPU Usage</span>
               <span>{cpu.toFixed(0)}%</span>
             </div>
-            <ProgressBar value={cpu} />
+            <Equalizer value={cpu} color="cyan" />
           </div>
           <div>
             <div className="mb-1 flex justify-between text-xs text-cyan-300/70">
               <span>RAM Usage</span>
               <span>{ramUsedGB.toFixed(0)} GB</span>
             </div>
-            <ProgressBar value={ramPercent} color="bg-violet-400" />
+            <Equalizer value={ramPercent} color="violet" />
           </div>
           <div className="grid grid-cols-3 gap-2">
             <Stat label="CPU" value={`${cpu.toFixed(0)}%`} />

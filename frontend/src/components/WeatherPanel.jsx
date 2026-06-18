@@ -1,5 +1,5 @@
-import { Panel, Stat } from './Panel'
-import { CloudIcon, RefreshIcon } from './icons'
+import { Panel, Stat, Thermometer } from './Panel'
+import { RefreshIcon } from './icons'
 
 export function WeatherPanel({ weather, online, onRefresh }) {
   return (
@@ -30,7 +30,7 @@ export function WeatherPanel({ weather, online, onRefresh }) {
               </div>
               <div className="text-xs text-cyan-500/50">{weather.condition}</div>
             </div>
-            <CloudIcon className="size-10 text-cyan-500/40" />
+            <Thermometer tempC={weather.tempC} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Stat label="Humidity" value={`${weather.humidity}%`} />

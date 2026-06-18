@@ -37,3 +37,32 @@ body {
     opacity: 1;
   }
 }
+
+@keyframes sphere-bounce {
+  0%,
+  100% {
+    transform: scale(0.94);
+  }
+  20% {
+    transform: scale(1.06);
+  }
+  40% {
+    transform: scale(0.97);
+  }
+  60% {
+    transform: scale(1.07);
+  }
+  80% {
+    transform: scale(0.96);
+  }
+}
+
+@keyframes eq-pulse {
+  0%,
+  100% {
+    transform: scaleY(0.82);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
