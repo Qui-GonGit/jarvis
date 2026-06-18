@@ -11,7 +11,17 @@ function generateSphereDots() {
       // Warp radius so points bunch up near the rim, like latitude lines
       // compressing near the limb of a sphere seen in orthographic projection.
       const rWarped = Math.sin((r * Math.PI) / 2)
-      dots.push({ x: rWarped * Math.cos(angle), y: rWarped * Math.sin(angle) })
+      const x2d = rWarped * Math.cos(angle)
+      const y2d = rWarped * Math.sin(angle)
+      // Recover the real depth coordinate from the unit-sphere identity
+      // (x2d, y2d are the orthographic projection of a point on the
+      // sphere), so the dot can be placed with a genuine translate3d and
+      // actually rotate in 3D rather than just spinning a flat pattern.
+      const z = Math.sqrt(Math.max(0, 1 - x2d * x2d - y2d * y2d))
+      // Mirror onto the back hemisphere too, otherwise half the sphere is
+      // bare whenever the rotation brings that side to face the viewer.
+      dots.push({ x: x2d, y: y2d, z })
+      if (z > 0.02) dots.push({ x: x2d, y: y2d, z: -z })
     }
   }
   return dots
@@ -37,24 +47,39 @@ export function JarvisOrb({ state }) {
         <div className="absolute inset-0 rounded-full border border-cyan-500/15" />
         <div className="absolute inset-6 rounded-full border border-cyan-500/20" />
 
-        <div className="absolute inset-0" style={{ perspective: '900px' }}>
+        <div className="absolute inset-0">
           <div
-            className="size-full"
-            style={{ transform: 'rotateX(11deg) rotateY(16deg)', transformStyle: 'preserve-3d' }}
+            className="relative size-full"
+            style={{
+              transformStyle: 'preserve-3d',
+              animation: `sphere-spin-y ${active ? '27s' : '49s'} linear infinite`,
+            }}
           >
             <div
-              className="size-full"
-              style={{ animation: voiceActive ? 'sphere-bounce 0.85s ease-in-out infinite' : 'none' }}
+              className="relative size-full"
+              style={{
+                transformStyle: 'preserve-3d',
+                animation: voiceActive ? 'sphere-bounce 0.85s ease-in-out infinite' : 'none',
+              }}
             >
-              <svg
-                viewBox="-50 -50 100 100"
-                className="size-full"
-                style={{ animation: `jarvis-spin ${active ? '18s' : '34s'} linear infinite` }}
+              <div
+                className="relative size-full"
+                style={{
+                  transformStyle: 'preserve-3d',
+                  animation: `sphere-spin-x ${active ? '18s' : '34s'} linear infinite`,
+                }}
               >
                 {SPHERE_DOTS.map((d, idx) => (
-                  <circle key={idx} cx={d.x * 46} cy={d.y * 46} r={0.85} fill="#7dd3fc" opacity={0.85} />
+                  <div
+                    key={idx}
+                    className="absolute top-1/2 left-1/2 size-[6px] rounded-full bg-[#7dd3fc]"
+                    style={{
+                      opacity: 0.85,
+                      transform: `translate3d(${d.x * 140}px, ${d.y * 140}px, ${d.z * 140}px) translate(-50%, -50%)`,
+                    }}
+                  />
                 ))}
-              </svg>
+              </div>
             </div>
           </div>
         </div>

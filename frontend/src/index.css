@@ -57,6 +57,24 @@ body {
   }
 }
 
+@keyframes sphere-spin-x {
+  from {
+    transform: rotateX(0deg);
+  }
+  to {
+    transform: rotateX(360deg);
+  }
+}
+
+@keyframes sphere-spin-y {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
 @keyframes eq-pulse {
   0%,
   100% {
