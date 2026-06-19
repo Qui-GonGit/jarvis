@@ -146,6 +146,9 @@ router.post('/', async (req, res) => {
         system: SYSTEM_PROMPT,
         tools,
         messages: conversation,
+        // web_search's dynamic filtering runs in a code-execution container; resuming a
+        // pending tool use from it 400s without echoing that container id back.
+        ...(response.container?.id ? { container: response.container.id } : {}),
       })
     }
 
