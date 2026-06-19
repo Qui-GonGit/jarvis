@@ -5,7 +5,7 @@ const SpeechRecognitionImpl =
     ? window.SpeechRecognition || window.webkitSpeechRecognition
     : null
 
-export function useSpeech({ onResult, lang = 'it-IT' } = {}) {
+export function useSpeech({ onResult, onSpeakStart, lang = 'it-IT' } = {}) {
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [supported] = useState(() => Boolean(SpeechRecognitionImpl))
@@ -13,6 +13,8 @@ export function useSpeech({ onResult, lang = 'it-IT' } = {}) {
   const recognitionRef = useRef(null)
   const onResultRef = useRef(onResult)
   onResultRef.current = onResult
+  const onSpeakStartRef = useRef(onSpeakStart)
+  onSpeakStartRef.current = onSpeakStart
   const audioRef = useRef(null)
 
   useEffect(() => {
@@ -62,7 +64,10 @@ export function useSpeech({ onResult, lang = 'it-IT' } = {}) {
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = lang
-    utterance.onstart = () => setIsSpeaking(true)
+    utterance.onstart = () => {
+      setIsSpeaking(true)
+      onSpeakStartRef.current?.()
+    }
     utterance.onend = () => setIsSpeaking(false)
     utterance.onerror = () => setIsSpeaking(false)
     window.speechSynthesis.speak(utterance)
@@ -85,7 +90,10 @@ export function useSpeech({ onResult, lang = 'it-IT' } = {}) {
       const url = URL.createObjectURL(blob)
       const audio = new Audio(url)
       audioRef.current = audio
-      audio.onplay = () => setIsSpeaking(true)
+      audio.onplay = () => {
+        setIsSpeaking(true)
+        onSpeakStartRef.current?.()
+      }
       audio.onended = () => {
         setIsSpeaking(false)
         URL.revokeObjectURL(url)

@@ -36,7 +36,7 @@ function buildFirstMessageContent(text, weatherData, emailAvailable) {
     ? `Il meteo attuale a ${weatherData.city} è: ${weatherData.condition}, ${weatherData.tempC.toFixed(1)}°C (percepita ${weatherData.feelsLikeC.toFixed(1)}°C).`
     : 'Il meteo non è disponibile al momento.'
   const emailLine = emailAvailable
-    ? ' Controlla anche la posta usando lo strumento a disposizione e riassumi molto brevemente le email importanti non lette, se ce ne sono.'
+    ? ' Controlla anche se ci sono email importanti non lette usando lo strumento a disposizione. Se ce ne sono, menzionalo solo brevemente (es. quante sono), senza elencarle o riassumerle nel dettaglio a meno che l\'utente non lo chieda esplicitamente. Se non ce ne sono, non parlarne affatto.'
     : ''
 
   return (
@@ -70,12 +70,20 @@ export default function App() {
   const emailStatus = usePolling('/api/email/status', { intervalMs: 30000 })
   const etf = usePolling('/api/etf', { intervalMs: 5 * 60 * 1000 })
 
+  const introMusic = useIntroMusic()
+  const pendingIntroMusicRef = useRef(false)
+
   const speech = useSpeech({
     onResult: (transcript) => {
       if (transcript.trim()) handleSend(transcript.trim())
     },
+    onSpeakStart: () => {
+      if (pendingIntroMusicRef.current) {
+        pendingIntroMusicRef.current = false
+        introMusic.play()
+      }
+    },
   })
-  const introMusic = useIntroMusic()
 
   useEffect(() => {
     setOrbState(speech.isListening ? 'listening' : speech.isSpeaking ? 'speaking' : 'idle')
@@ -88,7 +96,7 @@ export default function App() {
     setCommandCount((count) => count + 1)
     setOrbState('thinking')
 
-    if (isFirstMessage) introMusic.play()
+    if (isFirstMessage) pendingIntroMusicRef.current = true
     const apiContent = isFirstMessage
       ? buildFirstMessageContent(text, weather.data, emailStatus.data?.authorized)
       : text
@@ -113,6 +121,7 @@ export default function App() {
           time: timeNow(),
         },
       ])
+      pendingIntroMusicRef.current = false
       setOrbState('idle')
     }
   }
