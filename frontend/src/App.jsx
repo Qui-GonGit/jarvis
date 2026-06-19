@@ -6,7 +6,7 @@ import { UptimePanel } from './components/UptimePanel'
 import { JarvisOrb } from './components/JarvisOrb'
 import { ConversationPanel } from './components/ConversationPanel'
 import { ETFPanel } from './components/ETFPanel'
-import { KeyboardIcon, MicIcon } from './components/icons'
+import { MicIcon } from './components/icons'
 import { useSpeech } from './hooks/useSpeech'
 import { usePolling } from './hooks/usePolling'
 import { useIntroMusic } from './hooks/useIntroMusic'
@@ -27,7 +27,7 @@ function micErrorMessage(error) {
 }
 
 function timeNow() {
-  return new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
+  return new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 function buildFirstMessageContent(text, weatherData, emailAvailable) {
@@ -62,7 +62,6 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [commandCount, setCommandCount] = useState(0)
   const [orbState, setOrbState] = useState('idle')
-  const inputRef = useRef(null)
 
   const stats = usePolling('/api/system-stats', { intervalMs: 4000 })
   const weather = usePolling('/api/weather', { intervalMs: 10 * 60 * 1000 })
@@ -131,21 +130,6 @@ export default function App() {
     else speech.startListening()
   }
 
-  function handleClear() {
-    setMessages([])
-  }
-
-  function handleExtract() {
-    const text = messages.map((m) => `[${m.time}] ${m.role}: ${m.content}`).join('\n')
-    const blob = new Blob([text], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'jarvis-conversation.txt'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#040b16]">
       <TopBar backendOnline={health.online} emailStatus={emailStatus.data} />
@@ -173,14 +157,6 @@ export default function App() {
             >
               <MicIcon />
             </button>
-            <button
-              type="button"
-              onClick={() => inputRef.current?.focus()}
-              aria-label="Focus text input"
-              className="rounded-full border border-cyan-500/20 p-3 text-cyan-300/70 hover:text-cyan-100"
-            >
-              <KeyboardIcon />
-            </button>
           </div>
           {!speech.supported && (
             <p className="max-w-xs text-center text-xs text-amber-400">
@@ -197,16 +173,7 @@ export default function App() {
         <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
           <ETFPanel etfs={etf.data?.etfs} online={etf.online} onRefresh={etf.refresh} />
           <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-cyan-500/20 bg-[#081627]/70 shadow-[0_0_20px_-4px_rgba(56,189,248,0.15)]">
-            <ConversationPanel
-              messages={messages}
-              onSend={handleSend}
-              onClear={handleClear}
-              onExtract={handleExtract}
-              isListening={speech.isListening}
-              onMicClick={handleMicClick}
-              micSupported={speech.supported}
-              inputRef={inputRef}
-            />
+            <ConversationPanel messages={messages} />
           </div>
         </div>
       </main>
