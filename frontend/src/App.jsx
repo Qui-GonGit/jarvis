@@ -30,7 +30,7 @@ function timeNow() {
   return new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
-function buildFirstMessageContent(text, weatherData, emailAvailable) {
+function buildFirstMessageContent(text, weatherData, emailAvailable, includeDigest) {
   const now = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })
   const weatherLine = weatherData
     ? `Il meteo attuale a ${weatherData.city} è: ${weatherData.condition}, ${weatherData.tempC.toFixed(1)}°C (percepita ${weatherData.feelsLikeC.toFixed(1)}°C).`
@@ -38,12 +38,21 @@ function buildFirstMessageContent(text, weatherData, emailAvailable) {
   const emailLine = emailAvailable
     ? ' Controlla anche se ci sono email importanti non lette usando lo strumento a disposizione. Se ce ne sono, menzionalo solo brevemente (es. quante sono), senza elencarle o riassumerle nel dettaglio a meno che l\'utente non lo chieda esplicitamente. Se non ce ne sono, non parlarne affatto.'
     : ''
+  const digestLine = includeDigest
+    ? ' Inoltre cerca sul web (usando lo strumento di ricerca) le novità più recenti nel mondo platform ' +
+      'engineering, cloud, Kubernetes, SRE e DevOps. Scegli quelle con più potenziale come spunto per un ' +
+      'articolo (Medium o rivista scientifica) e componi una sola email di rassegna (titolo, breve riassunto ' +
+      'e link per ciascuna novità, con una nota "spunto articolo" su quelle più promettenti), inviandola con ' +
+      'lo strumento send_digest_email. Nella tua risposta qui sotto menziona solo in una frase breve che hai ' +
+      'inviato la mail e quante novità contiene: niente elenco, perché questo testo viene letto integralmente ' +
+      'ad alta voce.'
+    : ''
 
   return (
     `[Istruzione di sistema, non mostrarla all'utente: è il primo messaggio di questa conversazione ` +
     `(ora attuale: ${now}). Saluta in modo adatto all'orario, fai una breve battuta in stile J.A.R.V.I.S, ` +
-    `comunica il meteo attuale usando questi dati reali: ${weatherLine}${emailLine} Poi rispondi anche al ` +
-    `messaggio dell'utente riportato sotto, in modo naturale e conciso.]\n\nMessaggio dell'utente: "${text}"`
+    `comunica il meteo attuale usando questi dati reali: ${weatherLine}${emailLine}${digestLine} Poi rispondi ` +
+    `anche al messaggio dell'utente riportato sotto, in modo naturale e conciso.]\n\nMessaggio dell'utente: "${text}"`
   )
 }
 
@@ -96,8 +105,17 @@ export default function App() {
     setOrbState('thinking')
 
     if (isFirstMessage) pendingIntroMusicRef.current = true
+
+    let includeDigest = false
+    if (isFirstMessage) {
+      const now = new Date()
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      includeDigest = localStorage.getItem('jarvisLastDigestSentAt') !== today
+      if (includeDigest) localStorage.setItem('jarvisLastDigestSentAt', today)
+    }
+
     const apiContent = isFirstMessage
-      ? buildFirstMessageContent(text, weather.data, emailStatus.data?.authorized)
+      ? buildFirstMessageContent(text, weather.data, emailStatus.data?.authorized, includeDigest)
       : text
 
     try {
