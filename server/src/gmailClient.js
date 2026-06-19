@@ -118,3 +118,33 @@ export async function trashEmail(id) {
   await gmail.users.messages.trash({ userId: 'me', id })
   return { id, status: 'trashed' }
 }
+
+function encodeSubject(subject) {
+  return `=?UTF-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`
+}
+
+export function buildRawMessage({ to, subject, body }) {
+  const message = [
+    `To: ${to}`,
+    `Subject: ${encodeSubject(subject)}`,
+    'Content-Type: text/plain; charset=utf-8',
+    'MIME-Version: 1.0',
+    '',
+    body,
+  ].join('\r\n')
+  return Buffer.from(message, 'utf-8').toString('base64url')
+}
+
+export async function getMyEmailAddress() {
+  const gmail = await getGmailService()
+  const profile = await gmail.users.getProfile({ userId: 'me' })
+  return profile.data.emailAddress
+}
+
+export async function sendDigestEmail({ subject, body }) {
+  const gmail = await getGmailService()
+  const to = await getMyEmailAddress()
+  const raw = buildRawMessage({ to, subject, body })
+  await gmail.users.messages.send({ userId: 'me', requestBody: { raw } })
+  return { status: 'sent', to, subject }
+}
