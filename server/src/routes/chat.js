@@ -95,6 +95,66 @@ async function executeTool(name, input) {
   }
 }
 
+async function runAgentLoop(initialMessages) {
+  let conversation = initialMessages
+
+  let response = await anthropic.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4096,
+    system: SYSTEM_PROMPT,
+    tools,
+    messages: conversation,
+  })
+
+  let loopGuard = 0
+  while ((response.stop_reason === 'tool_use' || response.stop_reason === 'pause_turn') && loopGuard < 10) {
+    loopGuard += 1
+    const toolUseBlocks = response.content.filter((block) => block.type === 'tool_use')
+
+    if (toolUseBlocks.length > 0) {
+      const toolResults = await Promise.all(
+        toolUseBlocks.map(async (block) => ({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: JSON.stringify(await executeTool(block.name, block.input)),
+        })),
+      )
+      conversation = [
+        ...conversation,
+        { role: 'assistant', content: response.content },
+        { role: 'user', content: toolResults },
+      ]
+    } else {
+      // pause_turn with no client tool_use blocks: a server-side tool (web_search) hit its
+      // internal iteration cap. Re-send to let the model resume — no extra user message.
+      conversation = [...conversation, { role: 'assistant', content: response.content }]
+    }
+
+    response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      tools,
+      messages: conversation,
+      // web_search's dynamic filtering runs in a code-execution container; resuming a
+      // pending tool use from it 400s without echoing that container id back.
+      ...(response.container?.id ? { container: response.container.id } : {}),
+    })
+  }
+
+  return response.content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('\n')
+}
+
+const DIGEST_INSTRUCTION =
+  'Cerca sul web (usando lo strumento di ricerca) le novità più recenti nel mondo platform engineering, ' +
+  'cloud, Kubernetes, SRE e DevOps. Scegli quelle con più potenziale come spunto per un articolo (Medium o ' +
+  'rivista scientifica) e componi una sola email di rassegna (titolo, breve riassunto e link per ciascuna ' +
+  'novità, con una nota "spunto articolo" su quelle più promettenti), inviandola con lo strumento ' +
+  'send_digest_email.'
+
 router.post('/', async (req, res) => {
   if (!anthropic) {
     return res.status(503).json({ error: 'ANTHROPIC_API_KEY is not configured on the server.' })
@@ -106,61 +166,28 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    let conversation = messages.map(({ role, content }) => ({ role, content }))
-
-    let response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      tools,
-      messages: conversation,
-    })
-
-    let loopGuard = 0
-    while ((response.stop_reason === 'tool_use' || response.stop_reason === 'pause_turn') && loopGuard < 5) {
-      loopGuard += 1
-      const toolUseBlocks = response.content.filter((block) => block.type === 'tool_use')
-
-      if (toolUseBlocks.length > 0) {
-        const toolResults = await Promise.all(
-          toolUseBlocks.map(async (block) => ({
-            type: 'tool_result',
-            tool_use_id: block.id,
-            content: JSON.stringify(await executeTool(block.name, block.input)),
-          })),
-        )
-        conversation = [
-          ...conversation,
-          { role: 'assistant', content: response.content },
-          { role: 'user', content: toolResults },
-        ]
-      } else {
-        // pause_turn with no client tool_use blocks: a server-side tool (web_search) hit its
-        // internal iteration cap. Re-send to let the model resume — no extra user message.
-        conversation = [...conversation, { role: 'assistant', content: response.content }]
-      }
-
-      response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        system: SYSTEM_PROMPT,
-        tools,
-        messages: conversation,
-        // web_search's dynamic filtering runs in a code-execution container; resuming a
-        // pending tool use from it 400s without echoing that container id back.
-        ...(response.container?.id ? { container: response.container.id } : {}),
-      })
-    }
-
-    const reply = response.content
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('\n')
-
+    const conversation = messages.map(({ role, content }) => ({ role, content }))
+    const reply = await runAgentLoop(conversation)
     res.json({ reply })
   } catch (err) {
     console.error('Anthropic API error:', err.message)
     res.status(502).json({ error: 'Failed to get a response from Claude.' })
+  }
+})
+
+// Fire-and-forget digest generation, kept off the main chat turn so it never delays the
+// spoken reply (web_search + composing/sending the email can take the better part of a minute).
+router.post('/digest', async (req, res) => {
+  if (!anthropic) {
+    return res.status(503).json({ error: 'ANTHROPIC_API_KEY is not configured on the server.' })
+  }
+
+  try {
+    await runAgentLoop([{ role: 'user', content: DIGEST_INSTRUCTION }])
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('Digest generation error:', err.message)
+    res.status(502).json({ error: 'Failed to generate the digest.' })
   }
 })
 
