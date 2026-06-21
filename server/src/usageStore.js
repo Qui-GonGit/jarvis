@@ -25,7 +25,7 @@ export function createUsageStore(filePath) {
   }
 
   function add(deltaInputTokens, deltaOutputTokens) {
-    writeQueue = writeQueue.then(async () => {
+    const result = writeQueue.then(async () => {
       const current = await read()
       const next = mergeUsage(current, deltaInputTokens, deltaOutputTokens)
       await mkdir(path.dirname(filePath), { recursive: true })
@@ -34,7 +34,10 @@ export function createUsageStore(filePath) {
       await rename(tmpPath, filePath)
       return next
     })
-    return writeQueue
+    // Never let a rejection poison the chain for subsequent calls — only this
+    // call's own promise (returned below) should reject.
+    writeQueue = result.catch(() => {})
+    return result
   }
 
   return { read, add }

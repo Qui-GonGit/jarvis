@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, rm, readFile } from 'node:fs/promises'
+import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { mergeUsage, createUsageStore } from './usageStore.js'
@@ -69,6 +69,34 @@ test('usageStore.add serializes concurrent calls and reflects all increments', a
   // Verify the file on disk also has the correct total
   const onDisk = JSON.parse(await readFile(filePath, 'utf-8'))
   assert.deepEqual(onDisk, { inputTokens: 5, outputTokens: 0 })
+
+  await rm(dir, { recursive: true, force: true })
+})
+
+test('a failed add() does not poison subsequent add() calls on the same store instance', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-store-'))
+  const blockerFile = path.join(dir, 'blocker')
+  await writeFile(blockerFile, 'not a directory')
+  // filePath's parent ("blocker") is a file, so mkdir(recursive) for it will fail
+  const badFilePath = path.join(blockerFile, 'nested', 'usage.json')
+  const store = createUsageStore(badFilePath)
+
+  // First add() call should fail because mkdir will fail (ENOTDIR)
+  await assert.rejects(
+    () => store.add(1, 0),
+    (err) => err.code === 'ENOTDIR' || err.code === 'EEXIST'
+  )
+
+  // Remove the blocker file so the next call can succeed
+  await rm(blockerFile)
+
+  // Second add() call on the SAME store instance must succeed without being poisoned
+  const result = await store.add(5, 5)
+  assert.deepEqual(result, { inputTokens: 5, outputTokens: 5 })
+
+  // Verify the accumulated value is correct
+  const onDisk = JSON.parse(await readFile(badFilePath, 'utf-8'))
+  assert.deepEqual(onDisk, { inputTokens: 5, outputTokens: 5 })
 
   await rm(dir, { recursive: true, force: true })
 })
