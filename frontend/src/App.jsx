@@ -6,6 +6,7 @@ import { UptimePanel } from './components/UptimePanel'
 import { JarvisOrb } from './components/JarvisOrb'
 import { ConversationPanel } from './components/ConversationPanel'
 import { ETFPanel } from './components/ETFPanel'
+import { TokenUsagePanel } from './components/TokenUsagePanel'
 import { MicIcon } from './components/icons'
 import { useSpeech } from './hooks/useSpeech'
 import { usePolling } from './hooks/usePolling'
@@ -48,11 +49,9 @@ function buildFirstMessageContent(text, weatherData, emailAvailable) {
 }
 
 function triggerDailyDigest() {
-  const now = new Date()
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  if (localStorage.getItem('jarvisLastDigestSentAt') === today) return
-  localStorage.setItem('jarvisLastDigestSentAt', today)
-
+  // The backend is the source of truth for "already sent today" (checked
+  // against a Notion flag) — it no-ops quickly if so, so this can fire
+  // unconditionally on every first message of a session.
   fetch('/api/chat/digest', { method: 'POST' }).catch((err) => {
     console.error('Digest request failed:', err)
   })
@@ -79,6 +78,7 @@ export default function App() {
   const health = usePolling('/api/health', { intervalMs: 15000 })
   const emailStatus = usePolling('/api/email/status', { intervalMs: 30000 })
   const etf = usePolling('/api/etf', { intervalMs: 5 * 60 * 1000 })
+  const tokenUsage = usePolling('/api/usage/tokens', { intervalMs: 30 * 1000 })
 
   const introMusic = useIntroMusic()
   const pendingIntroMusicRef = useRef(false)
@@ -187,6 +187,7 @@ export default function App() {
 
         <div className="flex min-h-0 flex-col gap-4 overflow-hidden">
           <ETFPanel etfs={etf.data?.etfs} online={etf.online} onRefresh={etf.refresh} />
+          <TokenUsagePanel usage={tokenUsage.data} online={tokenUsage.online} />
           <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-cyan-500/20 bg-[#081627]/70 shadow-[0_0_20px_-4px_rgba(56,189,248,0.15)]">
             <ConversationPanel messages={messages} />
           </div>
