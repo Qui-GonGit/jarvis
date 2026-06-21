@@ -3,6 +3,7 @@ dist/
 .env
 *.local
 .DS_Store
+.claude/
 server/vendor/gmail-token.json
 server/vendor/piper-venv/
 server/vendor/piper/
