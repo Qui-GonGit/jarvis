@@ -7,6 +7,7 @@ import weatherRouter from './routes/weather.js'
 import ttsRouter from './routes/tts.js'
 import emailRouter from './routes/email.js'
 import etfRouter from './routes/etf.js'
+import usageRouter from './routes/usage.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -21,6 +22,7 @@ app.get('/api/health', (req, res) => {
     elevenLabsConfigured: Boolean(process.env.ELEVENLABS_API_KEY),
     piperConfigured: true,
     gmailConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    notionConfigured: Boolean(process.env.NOTION_API_KEY && process.env.NOTION_DIGEST_DB_ID),
   })
 })
 
@@ -30,6 +32,7 @@ app.use('/api/weather', weatherRouter)
 app.use('/api/tts', ttsRouter)
 app.use('/api/email', emailRouter)
 app.use('/api/etf', etfRouter)
+app.use('/api/usage', usageRouter)
 
 app.listen(PORT, () => {
   console.log(`JARVIS backend listening on http://localhost:${PORT}`)

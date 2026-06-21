@@ -1,6 +1,13 @@
 import { Router } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { listImportantUnread, getFullEmail, markEmailRead, trashEmail, sendDigestEmail } from '../gmailClient.js'
+import { createUsageStore } from '../usageStore.js'
+import { hasDigestBeenSentToday, logDigestSent } from '../notionDigestLog.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const usageStore = createUsageStore(path.join(__dirname, '..', '..', 'data', 'usage.json'))
 
 const router = Router()
 
@@ -95,8 +102,16 @@ async function executeTool(name, input) {
   }
 }
 
+function addResponseUsage(totals, response) {
+  const usage = response.usage || {}
+  totals.inputTokens +=
+    (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0)
+  totals.outputTokens += usage.output_tokens || 0
+}
+
 async function runAgentLoop(initialMessages) {
   let conversation = initialMessages
+  const usage = { inputTokens: 0, outputTokens: 0 }
 
   let response = await anthropic.messages.create({
     model: 'claude-sonnet-4-6',
@@ -105,6 +120,7 @@ async function runAgentLoop(initialMessages) {
     tools,
     messages: conversation,
   })
+  addResponseUsage(usage, response)
 
   let loopGuard = 0
   while ((response.stop_reason === 'tool_use' || response.stop_reason === 'pause_turn') && loopGuard < 10) {
@@ -140,12 +156,15 @@ async function runAgentLoop(initialMessages) {
       // pending tool use from it 400s without echoing that container id back.
       ...(response.container?.id ? { container: response.container.id } : {}),
     })
+    addResponseUsage(usage, response)
   }
 
-  return response.content
+  const reply = response.content
     .filter((block) => block.type === 'text')
     .map((block) => block.text)
     .join('\n')
+
+  return { reply, usage }
 }
 
 const DIGEST_INSTRUCTION =
@@ -167,7 +186,8 @@ router.post('/', async (req, res) => {
 
   try {
     const conversation = messages.map(({ role, content }) => ({ role, content }))
-    const reply = await runAgentLoop(conversation)
+    const { reply, usage } = await runAgentLoop(conversation)
+    await usageStore.add(usage.inputTokens, usage.outputTokens)
     res.json({ reply })
   } catch (err) {
     console.error('Anthropic API error:', err.message)
@@ -183,7 +203,27 @@ router.post('/digest', async (req, res) => {
   }
 
   try {
-    await runAgentLoop([{ role: 'user', content: DIGEST_INSTRUCTION }])
+    // A Notion failure here (bad token, network blip) must not block the digest
+    // attempt — better an occasional duplicate email than none at all.
+    let alreadySent = false
+    try {
+      alreadySent = await hasDigestBeenSentToday()
+    } catch (err) {
+      console.error('Notion digest-check failed, proceeding with send:', err.message)
+    }
+    if (alreadySent) {
+      return res.json({ ok: true, skipped: true })
+    }
+
+    const { usage } = await runAgentLoop([{ role: 'user', content: DIGEST_INSTRUCTION }])
+    await usageStore.add(usage.inputTokens, usage.outputTokens)
+
+    try {
+      await logDigestSent()
+    } catch (err) {
+      console.error('Failed to log digest send to Notion:', err.message)
+    }
+
     res.json({ ok: true })
   } catch (err) {
     console.error('Digest generation error:', err.message)

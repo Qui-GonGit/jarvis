@@ -5,6 +5,7 @@ dist/
 .DS_Store
 .claude/
 server/vendor/gmail-token.json
+server/data/
 server/vendor/piper-venv/
 server/vendor/piper/
 server/vendor/piper_macos_aarch64.tar.gz
