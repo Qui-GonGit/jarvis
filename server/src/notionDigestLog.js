@@ -18,8 +18,11 @@ export async function hasDigestBeenSentToday() {
   const databaseId = process.env.NOTION_DIGEST_DB_ID
   if (!client || !databaseId) return false
 
-  const response = await client.databases.query({
-    database_id: databaseId,
+  const database = await client.databases.retrieve({ database_id: databaseId })
+  const dataSourceId = database.data_sources[0].id
+
+  const response = await client.dataSources.query({
+    data_source_id: dataSourceId,
     filter: {
       and: [
         { property: 'Date', date: { equals: todayDateKey() } },
@@ -35,9 +38,12 @@ export async function logDigestSent() {
   const databaseId = process.env.NOTION_DIGEST_DB_ID
   if (!client || !databaseId) return
 
+  const database = await client.databases.retrieve({ database_id: databaseId })
+  const dataSourceId = database.data_sources[0].id
+
   const todayKey = todayDateKey()
   await client.pages.create({
-    parent: { database_id: databaseId },
+    parent: { type: 'data_source_id', data_source_id: dataSourceId },
     properties: {
       Day: { title: [{ text: { content: todayKey } }] },
       Date: { date: { start: todayKey } },
