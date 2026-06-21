@@ -9,6 +9,8 @@ export function mergeUsage(current, deltaInputTokens, deltaOutputTokens) {
 }
 
 export function createUsageStore(filePath) {
+  let writeQueue = Promise.resolve()
+
   async function read() {
     try {
       const raw = await readFile(filePath, 'utf-8')
@@ -22,14 +24,17 @@ export function createUsageStore(filePath) {
     }
   }
 
-  async function add(deltaInputTokens, deltaOutputTokens) {
-    const current = await read()
-    const next = mergeUsage(current, deltaInputTokens, deltaOutputTokens)
-    await mkdir(path.dirname(filePath), { recursive: true })
-    const tmpPath = `${filePath}.tmp`
-    await writeFile(tmpPath, JSON.stringify(next, null, 2))
-    await rename(tmpPath, filePath)
-    return next
+  function add(deltaInputTokens, deltaOutputTokens) {
+    writeQueue = writeQueue.then(async () => {
+      const current = await read()
+      const next = mergeUsage(current, deltaInputTokens, deltaOutputTokens)
+      await mkdir(path.dirname(filePath), { recursive: true })
+      const tmpPath = `${filePath}.tmp`
+      await writeFile(tmpPath, JSON.stringify(next, null, 2))
+      await rename(tmpPath, filePath)
+      return next
+    })
+    return writeQueue
   }
 
   return { read, add }

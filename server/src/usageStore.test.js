@@ -48,3 +48,27 @@ test('usageStore.read recovers from a corrupt file instead of throwing', async (
   assert.deepEqual(result, { inputTokens: 0, outputTokens: 0 })
   await rm(dir, { recursive: true, force: true })
 })
+
+test('usageStore.add serializes concurrent calls and reflects all increments', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-store-'))
+  const filePath = path.join(dir, 'usage.json')
+  const store = createUsageStore(filePath)
+
+  // Fire 5 concurrent add() calls, each adding 1 input token and 0 output tokens
+  const results = await Promise.all([
+    store.add(1, 0),
+    store.add(1, 0),
+    store.add(1, 0),
+    store.add(1, 0),
+    store.add(1, 0),
+  ])
+
+  // The final result should reflect all 5 increments
+  assert.deepEqual(results[results.length - 1], { inputTokens: 5, outputTokens: 0 })
+
+  // Verify the file on disk also has the correct total
+  const onDisk = JSON.parse(await readFile(filePath, 'utf-8'))
+  assert.deepEqual(onDisk, { inputTokens: 5, outputTokens: 0 })
+
+  await rm(dir, { recursive: true, force: true })
+})
