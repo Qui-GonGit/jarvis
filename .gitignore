@@ -4,6 +4,7 @@ dist/
 *.local
 .DS_Store
 .claude/
+.superpowers/
 server/vendor/gmail-token.json
 server/data/
 server/vendor/piper-venv/
