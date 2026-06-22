@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { DateTime } from 'luxon'
 import { createSupabaseClient } from '../lib/supabaseClient.js'
 import * as claudeCli from '../lib/claudeCli.js'
