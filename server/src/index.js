@@ -22,7 +22,6 @@ app.get('/api/health', (req, res) => {
     elevenLabsConfigured: Boolean(process.env.ELEVENLABS_API_KEY),
     piperConfigured: true,
     gmailConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
-    notionConfigured: Boolean(process.env.NOTION_API_KEY && process.env.NOTION_DIGEST_DB_ID),
   })
 })
 

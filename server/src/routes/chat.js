@@ -2,9 +2,8 @@ import { Router } from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { listImportantUnread, getFullEmail, markEmailRead, trashEmail, sendDigestEmail } from '../gmailClient.js'
+import { listImportantUnread, getFullEmail, markEmailRead, trashEmail } from '../gmailClient.js'
 import { createUsageStore } from '../usageStore.js'
-import { hasDigestBeenSentToday, logDigestSent } from '../notionDigestLog.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const usageStore = createUsageStore(path.join(__dirname, '..', '..', 'data', 'usage.json'))
@@ -22,12 +21,7 @@ const SYSTEM_PROMPT =
   'user asks about email, or at the start of a conversation if instructed to. When acting on a ' +
   'specific email (reading it in full, marking it read, deleting it), first make sure you know its ' +
   'id — call list_important_emails again if you are not sure which id matches the email the user means. ' +
-  'You also have a web search tool for current information, and a send_digest_email tool that delivers ' +
-  'long or detailed content (like a news digest) directly to the user\'s own inbox instead of speaking it ' +
-  'aloud — use it whenever asked for a digest or briefing, or any content too long to read out naturally. ' +
-  'send_digest_email never takes a recipient: it always goes to the user. When you use it, keep your ' +
-  'visible reply to one short sentence noting that you sent the email — do not repeat its contents in the ' +
-  'reply, since the reply is read aloud in full.'
+  'You also have a web search tool for current information.'
 
 const tools = [
   {
@@ -63,21 +57,6 @@ const tools = [
       required: ['id'],
     },
   },
-  {
-    name: 'send_digest_email',
-    description:
-      'Sends the user an email at their own Gmail address with the given subject and body. Use this to ' +
-      'deliver long or detailed content (e.g. a news digest) that should not be read aloud in full. Never ' +
-      'specify a recipient: it always goes to the user themselves.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        subject: { type: 'string', description: 'Email subject line.' },
-        body: { type: 'string', description: 'Plain text email body.' },
-      },
-      required: ['subject', 'body'],
-    },
-  },
   { type: 'web_search_20260209', name: 'web_search' },
 ]
 
@@ -92,8 +71,6 @@ async function executeTool(name, input) {
         return await markEmailRead(input.id)
       case 'delete_email':
         return await trashEmail(input.id)
-      case 'send_digest_email':
-        return await sendDigestEmail({ subject: input.subject, body: input.body })
       default:
         return { error: `Unknown tool ${name}` }
     }
@@ -167,13 +144,6 @@ async function runAgentLoop(initialMessages) {
   return { reply, usage }
 }
 
-const DIGEST_INSTRUCTION =
-  'Cerca sul web (usando lo strumento di ricerca) le novità più recenti nel mondo platform engineering, ' +
-  'cloud, Kubernetes, SRE e DevOps. Scegli quelle con più potenziale come spunto per un articolo (Medium o ' +
-  'rivista scientifica) e componi una sola email di rassegna (titolo, breve riassunto e link per ciascuna ' +
-  'novità, con una nota "spunto articolo" su quelle più promettenti), inviandola con lo strumento ' +
-  'send_digest_email.'
-
 router.post('/', async (req, res) => {
   if (!anthropic) {
     return res.status(503).json({ error: 'ANTHROPIC_API_KEY is not configured on the server.' })
@@ -192,42 +162,6 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('Anthropic API error:', err.message)
     res.status(502).json({ error: 'Failed to get a response from Claude.' })
-  }
-})
-
-// Fire-and-forget digest generation, kept off the main chat turn so it never delays the
-// spoken reply (web_search + composing/sending the email can take the better part of a minute).
-router.post('/digest', async (req, res) => {
-  if (!anthropic) {
-    return res.status(503).json({ error: 'ANTHROPIC_API_KEY is not configured on the server.' })
-  }
-
-  try {
-    // A Notion failure here (bad token, network blip) must not block the digest
-    // attempt — better an occasional duplicate email than none at all.
-    let alreadySent = false
-    try {
-      alreadySent = await hasDigestBeenSentToday()
-    } catch (err) {
-      console.error('Notion digest-check failed, proceeding with send:', err.message)
-    }
-    if (alreadySent) {
-      return res.json({ ok: true, skipped: true })
-    }
-
-    const { usage } = await runAgentLoop([{ role: 'user', content: DIGEST_INSTRUCTION }])
-    await usageStore.add(usage.inputTokens, usage.outputTokens)
-
-    try {
-      await logDigestSent()
-    } catch (err) {
-      console.error('Failed to log digest send to Notion:', err.message)
-    }
-
-    res.json({ ok: true })
-  } catch (err) {
-    console.error('Digest generation error:', err.message)
-    res.status(502).json({ error: 'Failed to generate the digest.' })
   }
 })
 

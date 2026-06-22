@@ -48,15 +48,6 @@ function buildFirstMessageContent(text, weatherData, emailAvailable) {
   )
 }
 
-function triggerDailyDigest() {
-  // The backend is the source of truth for "already sent today" (checked
-  // against a Notion flag) — it no-ops quickly if so, so this can fire
-  // unconditionally on every first message of a session.
-  fetch('/api/chat/digest', { method: 'POST' }).catch((err) => {
-    console.error('Digest request failed:', err)
-  })
-}
-
 async function requestReply(apiMessages) {
   const res = await fetch('/api/chat', {
     method: 'POST',
@@ -108,7 +99,6 @@ export default function App() {
 
     if (isFirstMessage) {
       pendingIntroMusicRef.current = true
-      triggerDailyDigest()
     }
 
     const apiContent = isFirstMessage
