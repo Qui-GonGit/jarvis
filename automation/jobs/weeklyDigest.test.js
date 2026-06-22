@@ -136,3 +136,29 @@ test('run() with force:true ignores dedupe even when already sent this week', as
 
   assert.deepEqual(result, { status: 'sent', subject: 'Rassegna' })
 })
+
+test('run() still returns sent when the post-send log write fails', async () => {
+  const supabase = fakeSupabase({ insertError: new Error('supabase write down') })
+
+  const result = await run({
+    now: new Date('2026-06-24T10:00:00+02:00'),
+    supabase,
+    claudeCli: { run: async () => ({ subject: 'Rassegna', body: 'Contenuto' }) },
+    gmailSender: { send: async () => ({ status: 'sent' }) },
+  })
+
+  assert.deepEqual(result, { status: 'sent', subject: 'Rassegna' })
+})
+
+test('run() still returns the original failure when logging that failure also fails', async () => {
+  const supabase = fakeSupabase({ insertError: new Error('supabase write down') })
+
+  const result = await run({
+    now: new Date('2026-06-24T10:00:00+02:00'),
+    supabase,
+    claudeCli: { run: async () => { throw new Error('claude exploded') } },
+    gmailSender: { send: async () => { throw new Error('should not be called') } },
+  })
+
+  assert.deepEqual(result, { status: 'failed', error: 'claude exploded' })
+})
