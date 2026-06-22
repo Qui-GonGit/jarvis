@@ -27,28 +27,9 @@ test('createSupabaseClient returns a client when both env vars are set', () => {
   process.env.SUPABASE_URL = 'https://example.supabase.co'
   process.env.SUPABASE_SERVICE_KEY = 'fake-key'
 
-  let client = null
-  let validationPassed = false
-  try {
-    client = createSupabaseClient()
-    validationPassed = true
-  } catch (err) {
-    // In Node 16, createClient tries to initialize WebSocket/browser APIs
-    // If we get past validation (env vars check), any error is due to missing
-    // browser APIs, not our validation logic. This is acceptable for this test.
-    if (err.message.includes('SUPABASE_URL') || err.message.includes('SUPABASE_SERVICE_KEY')) {
-      throw err
-    }
-    validationPassed = true
-  }
+  const client = createSupabaseClient()
 
-  // Validation passed - either we got a client or we failed on browser APIs
-  assert.ok(validationPassed)
-
-  // If we got a client, verify it has the expected interface
-  if (client) {
-    assert.equal(typeof client.from, 'function')
-  }
+  assert.equal(typeof client.from, 'function')
 
   process.env = original
 })
